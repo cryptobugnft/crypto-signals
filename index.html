@@ -3,111 +3,277 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Crypto Signals: BTC • BCH • TRX</title>
+    <title>Crypto Signals Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { 
-            font-family: Arial, sans-serif; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             margin: 0; 
             padding: 10px; 
-            background: #f0f0f0; 
-            display: flex; 
-            flex-direction: column; 
+            background: #f4f7fa; 
+            color: #333; 
+            line-height: 1.5;
         }
-        h1 { text-align: center; font-size: 1.6em; margin: 10px 0; }
-        h1 small { display: block; font-size: 0.7em; color: #666; }
-        p { text-align: center; margin: 8px 0; font-size: 0.9em; }
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin: 10px 0; 
-            font-size: 0.9em; 
-            table-layout: fixed;
-        }
-        th, td { 
-            border: 1px solid #ccc; 
-            padding: 8px; 
-            text-align: center; 
-            word-wrap: break-word;
-        }
-        th { background: #ddd; font-size: 0.8em; }
+        h1 { text-align: center; font-size: 1.8em; margin: 10px 0; color: #2c3e50; }
+        p { text-align: center; margin: 8px 0; font-size: 0.95em; color: #7f8c8d; }
+        #search-container { text-align: center; margin: 15px 0; }
+        #search-input { padding: 10px; width: 70%; max-width: 300px; border: 1px solid #ddd; border-radius: 5px; }
+        #add-favorite { padding: 10px 15px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        #token-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 20px 0; }
+        .token-btn { padding: 10px 20px; background: #ecf0f1; border: 1px solid #bdc3c7; border-radius: 5px; cursor: pointer; transition: background 0.3s; }
+        .token-btn:hover { background: #bdc3c7; }
+        .token-btn.selected { background: #3498db; color: white; }
+        #content { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        #tabs { display: flex; justify-content: space-around; margin-bottom: 15px; }
+        .tab-btn { padding: 10px; background: #ecf0f1; border: none; cursor: pointer; flex: 1; text-align: center; transition: background 0.3s; }
+        .tab-btn.active { background: #3498db; color: white; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        th { background: #f9f9f9; }
         .buy { background: #d4edda; color: #155724; }
         .sell { background: #f8d7da; color: #721c24; }
         .neutral { background: #fff3cd; color: #856404; }
-        .action-btn {
-            padding: 12px;
-            font-size: 1.1em;
-            font-weight: bold;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            text-decoration: none;
-            display: block;
-            width: 90%;
-            margin: 8px auto;
-        }
-        .buy-btn { background: #28a745; color: white; }
-        .sell-btn { background: #dc3545; color: white; }
-        #charts { margin-top: 20px; }
-        .chart-container {
-            position: relative;
-            height: 250px; /* Fixed height to prevent eating page */
-            width: 100%;
-            margin-bottom: 30px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        canvas { 
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-        }
-        h2 { text-align: center; font-size: 1.2em; margin: 10px 0 5px; }
+        .action-btn { padding: 12px; font-size: 1em; border-radius: 5px; cursor: pointer; display: block; width: 90%; margin: 10px auto; text-decoration: none; color: white; text-align: center; }
+        .buy-btn { background: #27ae60; }
+        .sell-btn { background: #e74c3c; }
+        .chart-container { position: relative; height: 250px; margin: 20px 0; }
+        #news-list, #about-content { font-size: 0.95em; }
+        .news-item { margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .news-item a { color: #3498db; text-decoration: none; }
+        .news-item a:hover { text-decoration: underline; }
         @media (min-width: 600px) {
-            th, td { padding: 12px; font-size: 1em; }
-            .action-btn { width: 70%; font-size: 1.2em; }
-            h1 { font-size: 2em; }
-            .chart-container { height: 300px; }
+            #content { max-width: 800px; margin: 0 auto; }
+            table { font-size: 1em; }
         }
     </style>
 </head>
 <body>
-    <h1>Crypto Signals<br><small>BTC • BCH • TRX</small></h1>
-    <p>Last updated: <span id="last-update"></span></p>
-    <p><strong>Tap BUY/SELL → opens OKX App directly to spot trading page</strong></p>
-
-    <table id="signals-table">
-        <thead>
-            <tr>
-                <th>Token</th>
-                <th>Price USD</th>
-                <th>MA Signal</th>
-                <th>RSI Signal</th>
-                <th>Suggestion</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
-
-    <div id="charts"></div>
+    <h1>Crypto Signals Pro</h1>
+    <p>Top 10 Cryptos & Favorites | Last updated: <span id="last-update"></span></p>
+    
+    <div id="search-container">
+        <input id="search-input" type="text" placeholder="Search for a token (e.g., bitcoin)">
+        <button id="add-favorite">Add to Favorites</button>
+    </div>
+    
+    <div id="token-list"></div>
+    
+    <div id="content" style="display: none;">
+        <div id="tabs">
+            <button class="tab-btn active" data-tab="overview">Overview</button>
+            <button class="tab-btn" data-tab="community">Community</button>
+            <button class="tab-btn" data-tab="about">About</button>
+        </div>
+        <div id="overview" class="tab-content"></div>
+        <div id="community" class="tab-content" style="display: none;"></div>
+        <div id="about" class="tab-content" style="display: none;"></div>
+    </div>
 
     <script>
-        const tokens = [
-            { name: 'BTC', id: 'bitcoin', pair: 'btc-usdt' },
-            { name: 'BCH', id: 'bitcoin-cash', pair: 'bch-usdt' },
-            { name: 'TRX', id: 'tron', pair: 'trx-usdt' }
-        ];
+        let selectedToken = null;
+        let favorites = JSON.parse(localStorage.getItem('cryptoFavorites')) || [];
+        let topTokens = [];
+        let allTokens = new Set(); // To avoid duplicates
+
+        async function fetchTopTokens() {
+            const res = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1');
+            const data = await res.json();
+            topTokens = data.map(coin => ({ name: coin.name, id: coin.id, symbol: coin.symbol.toUpperCase() }));
+            topTokens.forEach(token => allTokens.add(token.id));
+            favorites.forEach(id => allTokens.add(id));
+            renderTokenList();
+        }
+
+        function renderTokenList() {
+            const list = document.getElementById('token-list');
+            list.innerHTML = '';
+            topTokens.forEach(token => {
+                const btn = createTokenButton(token);
+                list.appendChild(btn);
+            });
+            favorites.forEach(id => {
+                if (!topTokens.some(t => t.id === id)) {
+                    // Fetch name if needed, but for simplicity assume id is known
+                    const btn = document.createElement('button');
+                    btn.className = 'token-btn';
+                    btn.textContent = id.charAt(0).toUpperCase() + id.slice(1);
+                    btn.dataset.id = id;
+                    btn.onclick = () => selectToken({ id });
+                    list.appendChild(btn);
+                }
+            });
+        }
+
+        function createTokenButton(token) {
+            const btn = document.createElement('button');
+            btn.className = 'token-btn';
+            btn.textContent = token.name;
+            btn.dataset.id = token.id;
+            btn.onclick = () => selectToken(token);
+            return btn;
+        }
+
+        async function selectToken(token) {
+            selectedToken = token;
+            document.querySelectorAll('.token-btn').forEach(b => b.classList.remove('selected'));
+            document.querySelector(`[data-id="${token.id}"]`).classList.add('selected');
+            document.getElementById('content').style.display = 'block';
+            await loadOverview(token);
+            loadCommunity(token);
+            loadAbout(token);
+            showTab('overview');
+        }
+
+        function showTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+            document.getElementById(tab).style.display = 'block';
+        }
+
+        async function loadOverview(token) {
+            const div = document.getElementById('overview');
+            div.innerHTML = '<p>Loading...</p>';
+            // Fetch current price
+            const priceRes = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${token.id}&vs_currencies=usd`);
+            const priceData = await priceRes.json();
+            const currentPrice = priceData[token.id].usd.toFixed(2);
+
+            // Historical data
+            const histRes = await fetch(`https://api.coingecko.com/api/v3/coins/${token.id}/market_chart?vs_currency=usd&days=365`);
+            const histData = await histRes.json();
+            const prices = histData.prices.map(p => p[1]);
+
+            const sma50 = calculateSMA(prices, 50);
+            const sma200 = calculateSMA(prices, 200);
+            const rsiValues = calculateRSI(prices, 14);
+
+            const latestSMA50 = sma50[sma50.length - 1];
+            const latestSMA200 = sma200[sma200.length - 1];
+            const latestRSI = rsiValues[rsiValues.length - 1]?.toFixed(1) || 'N/A';
+
+            let maSignal = 'Neutral', maClass = 'neutral';
+            if (latestSMA50 > latestSMA200) { maSignal = 'Buy (Golden Cross)'; maClass = 'buy'; }
+            else if (latestSMA50 < latestSMA200) { maSignal = 'Sell (Death Cross)'; maClass = 'sell'; }
+
+            let rsiSignal = 'Neutral', rsiClass = 'neutral';
+            if (latestRSI < 30) { rsiSignal = 'Buy (Oversold)'; rsiClass = 'buy'; }
+            else if (latestRSI > 70) { rsiSignal = 'Sell (Overbought)'; rsiClass = 'sell'; }
+
+            let combined = 'Hold';
+            let actionHtml = '<strong>Hold</strong>';
+            let actionClass = 'neutral';
+
+            if (maClass === 'buy' && rsiClass === 'buy') { combined = 'Strong Buy'; actionClass = 'buy'; }
+            else if (maClass === 'sell' && rsiClass === 'sell') { combined = 'Strong Sell'; actionClass = 'sell'; }
+            else if (maClass === 'buy' || rsiClass === 'buy') { combined = 'Buy'; actionClass = 'buy'; }
+            else if (maClass === 'sell' || rsiClass === 'sell') { combined = 'Sell'; actionClass = 'sell'; }
+
+            if (actionClass === 'buy') {
+                actionHtml = `<a class="action-btn buy-btn" onclick="openOKXSpotTrading('${token.symbol}-USDT'); return false;">BUY on OKX</a>`;
+            } else if (actionClass === 'sell') {
+                actionHtml = `<a class="action-btn sell-btn" onclick="openOKXSpotTrading('${token.symbol}-USDT'); return false;">SELL on OKX</a>`;
+            }
+
+            div.innerHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Token</th>
+                            <th>Price (USD)</th>
+                            <th>MA Signal</th>
+                            <th>RSI Signal</th>
+                            <th>Suggestion</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>${token.name}</strong></td>
+                            <td>$${currentPrice}</td>
+                            <td class="${maClass}">${maSignal}</td>
+                            <td class="${rsiClass}">${rsiSignal} (RSI: ${latestRSI})</td>
+                            <td><strong>${combined}</strong></td>
+                            <td>${actionHtml}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="chart-container">
+                    <canvas id="chart"></canvas>
+                </div>
+            `;
+
+            const ctx = document.getElementById('chart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: histData.prices.map((_, i) => i % 30 === 0 ? `Day ${i}` : ''),
+                    datasets: [
+                        { label: 'Price', data: prices, borderColor: '#3498db', fill: false },
+                        { label: '50 SMA', data: sma50, borderColor: '#e67e22', fill: false },
+                        { label: '200 SMA', data: sma200, borderColor: '#e74c3c', fill: false }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        async function loadCommunity(token) {
+            const div = document.getElementById('community');
+            div.innerHTML = '<p>Loading news...</p>';
+            const symbol = token.symbol || token.name.toUpperCase(); // Use symbol if available
+            const res = await fetch(`https://cryptopanic.com/api/v1/posts/?currencies=${symbol}&kind=news&public=true`);
+            const data = await res.json();
+            div.innerHTML = '<h3>Latest News</h3>';
+            data.results.slice(0, 5).forEach(post => {
+                div.innerHTML += `
+                    <div class="news-item">
+                        <a href="${post.url}" target="_blank">${post.title}</a>
+                        <p><small>${new Date(post.published_at).toLocaleDateString()}</small></p>
+                    </div>
+                `;
+            });
+        }
+
+        async function loadAbout(token) {
+            const div = document.getElementById('about');
+            div.innerHTML = '<p>Loading details...</p>';
+            const res = await fetch(`https://api.coingecko.com/api/v3/coins/${token.id}?localization=false&tickers=false&market_data=false&community_data=true&developer_data=true&sparkline=false`);
+            const data = await res.json();
+            div.innerHTML = `
+                <h3>About ${data.name}</h3>
+                <p>${data.description.en}</p>
+                <p><strong>Genesis Date:</strong> ${data.genesis_date || 'N/A'}</p>
+                <p><strong>Homepage:</strong> <a href="${data.links.homepage[0]}" target="_blank">${data.links.homepage[0]}</a></p>
+                <p><strong>Twitter Followers:</strong> ${data.community_data.twitter_followers}</p>
+                <p><strong>Reddit Subscribers:</strong> ${data.community_data.reddit_subscribers}</p>
+                <p><strong>Developer Stars:</strong> ${data.developer_data.stars}</p>
+            `;
+        }
+
+        async function searchToken(query) {
+            const res = await fetch(`https://api.coingecko.com/api/v3/search?query=${query}`);
+            const data = await res.json();
+            if (data.coins.length > 0) {
+                const coin = data.coins[0];
+                const token = { name: coin.name, id: coin.id, symbol: coin.symbol.toUpperCase() };
+                if (!favorites.includes(token.id)) {
+                    favorites.push(token.id);
+                    localStorage.setItem('cryptoFavorites', JSON.stringify(favorites));
+                    renderTokenList();
+                }
+                selectToken(token);
+            } else {
+                alert('Token not found.');
+            }
+        }
 
         function openOKXSpotTrading(pair) {
-            const tradeUrl = `https://www.okx.com/trade-spot/${pair}`;
+            const tradeUrl = `https://www.okx.com/trade-spot/${pair.toLowerCase()}`;
             const encodedTradeUrl = encodeURIComponent(tradeUrl);
             const deepLink = `okx://wallet/dapp/url?dappUrl=${encodedTradeUrl}`;
             const universalLink = `https://www.okx.com/download?deeplink=${encodeURIComponent(deepLink)}`;
-
             window.location.href = universalLink;
-
-            // Fallback to download page if app not opened
             setTimeout(() => {
                 window.location.href = 'https://www.okx.com/download';
             }, 1500);
@@ -137,102 +303,28 @@
             let avgLoss = losses.slice(0, period).reduce((a, b) => a + b, 0) / period;
             let rsi = [null];
             for (let i = period; i < prices.length; i++) {
-                avgGain = (avgGain * (period - 1) + gains[i]) / period;
-                avgLoss = (avgLoss * (period - 1) + losses[i]) / period;
+                avgGain = (avgGain * (period - 1) + (gains[i - 1] || 0)) / period;
+                avgLoss = (avgLoss * (period - 1) + (losses[i - 1] || 0)) / period;
                 if (avgLoss === 0) rsi.push(100);
-                else {
-                    let rs = avgGain / avgLoss;
-                    rsi.push(100 - (100 / (1 + rs)));
-                }
+                else rsi.push(100 - (100 / (1 + avgGain / avgLoss)));
             }
             return rsi;
         }
 
-        async function fetchData() {
-            const tableBody = document.querySelector('#signals-table tbody');
-            const chartsDiv = document.getElementById('charts');
-            tableBody.innerHTML = '';
-            chartsDiv.innerHTML = '';
+        document.getElementById('add-favorite').onclick = () => {
+            const query = document.getElementById('search-input').value.trim();
+            if (query) searchToken(query);
+        };
+
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.onclick = () => showTab(btn.dataset.tab);
+        });
+
+        fetchTopTokens();
+        setInterval(() => {
             document.getElementById('last-update').textContent = new Date().toLocaleString();
-
-            for (const token of tokens) {
-                const priceRes = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${token.id}&vs_currencies=usd`);
-                const priceData = await priceRes.json();
-                const currentPrice = priceData[token.id].usd.toFixed(2);
-
-                const histRes = await fetch(`https://api.coingecko.com/api/v3/coins/${token.id}/market_chart?vs_currency=usd&days=365`);
-                const histData = await histRes.json();
-                const prices = histData.prices.map(p => p[1]);
-
-                const sma50 = calculateSMA(prices, 50);
-                const sma200 = calculateSMA(prices, 200);
-                const rsiValues = calculateRSI(prices, 14);
-
-                const latestSMA50 = sma50[sma50.length - 1];
-                const latestSMA200 = sma200[sma200.length - 1];
-                const latestRSI = rsiValues[rsiValues.length - 1]?.toFixed(1) || 'N/A';
-
-                let maSignal = 'Neutral', maClass = 'neutral';
-                if (latestSMA50 > latestSMA200) { maSignal = 'Buy (Golden)'; maClass = 'buy'; }
-                else if (latestSMA50 < latestSMA200) { maSignal = 'Sell (Death)'; maClass = 'sell'; }
-
-                let rsiSignal = 'Neutral', rsiClass = 'neutral';
-                if (latestRSI < 30) { rsiSignal = 'Buy (Oversold)'; rsiClass = 'buy'; }
-                else if (latestRSI > 70) { rsiSignal = 'Sell (Overbought)'; rsiClass = 'sell'; }
-
-                let combined = 'Hold';
-                let actionHtml = '<strong>Hold</strong>';
-                let actionClass = 'neutral';
-
-                if (maClass === 'buy' && rsiClass === 'buy') { combined = 'Strong Buy'; actionClass = 'buy'; }
-                else if (maClass === 'sell' && rsiClass === 'sell') { combined = 'Strong Sell'; actionClass = 'sell'; }
-                else if (maClass === 'buy' || rsiClass === 'buy') { combined = 'Buy'; actionClass = 'buy'; }
-                else if (maClass === 'sell' || rsiClass === 'sell') { combined = 'Sell'; actionClass = 'sell'; }
-
-                if (actionClass === 'buy') {
-                    actionHtml = `<a class="action-btn buy-btn" onclick="openOKXSpotTrading('${token.pair}'); return false;">BUY on OKX</a>`;
-                } else if (actionClass === 'sell') {
-                    actionHtml = `<a class="action-btn sell-btn" onclick="openOKXSpotTrading('${token.pair}'); return false;">SELL on OKX</a>`;
-                }
-
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td><strong>${token.name}</strong></td>
-                    <td>$${currentPrice}</td>
-                    <td class="${maClass}">${maSignal}</td>
-                    <td class="${rsiClass}">${rsiSignal}<br>(RSI: ${latestRSI})</td>
-                    <td><strong>${combined}</strong></td>
-                    <td>${actionHtml}</td>
-                `;
-                tableBody.appendChild(row);
-
-                // Chart with fixed container
-                const chartWrapper = document.createElement('div');
-                chartWrapper.innerHTML = `<h2>${token.name} - Last 365 Days</h2><div class="chart-container"><canvas id="chart-${token.name}"></canvas></div>`;
-                chartsDiv.appendChild(chartWrapper);
-
-                const ctx = document.getElementById(`chart-${token.name}`).getContext('2d');
-                new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: histData.prices.map((_, i) => i % 30 === 0 ? `Day ${i}` : ''),
-                        datasets: [
-                            { label: 'Price', data: prices, borderColor: '#007bff', fill: false, tension: 0.1 },
-                            { label: '50 SMA', data: sma50, borderColor: '#fd7e14', fill: false },
-                            { label: '200 SMA', data: sma200, borderColor: '#dc3545', fill: false }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: { y: { beginAtZero: false } }
-                    }
-                });
-            }
-        }
-
-        fetchData();
-        setInterval(fetchData, 300000); // Refresh every 5 minutes
+            if (selectedToken) loadOverview(selectedToken);
+        }, 300000); // 5 min
     </script>
 </body>
 </html>
