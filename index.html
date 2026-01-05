@@ -16,14 +16,7 @@
             --red: #ef4444;
             --hover: #334155;
         }
-        body { 
-            font-family: 'Segoe UI', system-ui, sans-serif; 
-            margin: 0; 
-            padding: 12px; 
-            background: var(--bg); 
-            color: var(--text);
-            font-size: 14px;
-        }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; padding: 12px; background: var(--bg); color: var(--text); font-size: 14px; }
         h1 { text-align: center; font-size: 1.6em; margin: 12px 0; }
         p { text-align: center; margin: 6px 0; font-size: 0.85em; color: var(--text-muted); }
         #search-container { text-align: center; margin: 16px 0; }
@@ -31,9 +24,9 @@
         #add-favorite { padding: 10px 16px; background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.95em; }
         #tokens-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; margin: 10px 0; }
         #tokens-table th { background: #16213a; padding: 10px 8px; font-size: 0.8em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-        .token-row { background: var(--card-bg); cursor: pointer; transition: background 0.2s; }
+        .token-row { background: var(--card-bg); cursor: pointer; transition: background 0.2s; border-radius: 12px; }
         .token-row:hover { background: var(--hover); }
-        .token-row td { padding: 12px 8px; text-align: center; font-size: 0.9em; border-bottom: 1px solid #334155; }
+        .token-row td { padding: 12px 8px; text-align: center; font-size: 0.9em; }
         .token-icon { width: 28px; height: 28px; border-radius: 50%; }
         .token-symbol { font-weight: bold; font-size: 1em; }
         .token-name { font-size: 0.8em; color: var(--text-muted); }
@@ -42,9 +35,9 @@
         .arrow { font-size: 1.3em; margin-left: 6px; vertical-align: middle; }
         .green { color: var(--green); }
         .red { color: var(--red); }
-        .section-label { display: block; text-align: left; padding: 8px 16px; background: var(--accent); color: white; font-size: 0.85em; font-weight: bold; border-radius: 8px 8px 0 0; margin: 16px 0 0; }
-        .detail-row { background: #16213a !important; }
-        .detail-content { padding: 16px; background: #1e293b; border-radius: 0 0 12px 12px; }
+        .section-label { display: block; text-align: left; padding: 10px 16px; background: var(--accent); color: white; font-size: 0.85em; font-weight: bold; border-radius: 8px 8px 0 0; margin-top: 16px; }
+        .detail-row { border-radius: 0 0 12px 12px; overflow: hidden; }
+        .detail-content { padding: 16px; background: #16213a; }
         .tabs { display: flex; margin-bottom: 16px; border-bottom: 1px solid #334155; }
         .tab-btn { flex: 1; padding: 12px; background: none; border: none; color: var(--text-muted); font-size: 0.95em; cursor: pointer; }
         .tab-btn.active { color: var(--text); border-bottom: 3px solid var(--accent); font-weight: bold; }
@@ -53,7 +46,7 @@
         .action-btn { padding: 14px; font-size: 1.1em; border-radius: 8px; cursor: pointer; display: block; width: 90%; margin: 15px auto; text-decoration: none; color: white; text-align: center; font-weight: bold; }
         .buy-btn { background: var(--green); }
         .sell-btn { background: var(--red); }
-        .chart-container { position: relative; height: 280px; margin: 20px 0; background: #0f172a; border-radius: 8px; padding: 10px; }
+        .chart-container { position: relative; height: 280px; margin: 20px 0; background: #0f172a; border-radius: 8px; padding: 8px; }
         .news-item { margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #334155; font-size: 0.95em; }
         .news-item a { color: var(--accent); text-decoration: none; }
         .news-item a:hover { text-decoration: underline; }
@@ -86,7 +79,50 @@
         let topTokens = [];
         let allTokens = [];
         let expandedTokenId = null;
-        let tokenCache = {}; // Cache details per token
+        let tokenCache = {}; // { id: { overview: html, community: html, about: html, chart: Chart instance } }
+        let currentChart = null;
+
+        // Utility functions - DEFINED FIRST
+        function calculateSMA(prices, period) {
+            const sma = [];
+            for (let i = 0; i < prices.length; i++) {
+                if (i < period - 1) sma.push(null);
+                else {
+                    let sum = 0;
+                    for (let j = 0; j < period; j++) sum += prices[i - j];
+                    sma.push(sum / period);
+                }
+            }
+            return sma;
+        }
+
+        function calculateRSI(prices, period = 14) {
+            if (prices.length < period + 1) return Array(prices.length).fill(null);
+            let gains = [], losses = [];
+            for (let i = 1; i < prices.length; i++) {
+                const diff = prices[i] - prices[i - 1];
+                gains.push(diff > 0 ? diff : 0);
+                losses.push(diff < 0 ? -diff : 0);
+            }
+            let avgGain = gains.slice(0, period).reduce((a,b) => a + b, 0) / period;
+            let avgLoss = losses.slice(0, period).reduce((a,b) => a + b, 0) / period;
+            const rsi = [null];
+            for (let i = period; i < prices.length; i++) {
+                avgGain = (avgGain * (period - 1) + gains[i]) / period;
+                avgLoss = (avgLoss * (period - 1) + losses[i]) / period;
+                if (avgLoss === 0) rsi.push(100);
+                else rsi.push(100 - (100 / (1 + avgGain / avgLoss)));
+            }
+            return rsi;
+        }
+
+        function openOKXSpotTrading(pair) {
+            const tradeUrl = `https://www.okx.com/trade-spot/${pair}`;
+            const encoded = encodeURIComponent(tradeUrl);
+            const deepLink = `okx://wallet/dapp/url?dappUrl=${encoded}`;
+            window.location.href = `https://www.okx.com/download?deeplink=${encodeURIComponent(deepLink)}`;
+            setTimeout(() => window.location.href = 'https://www.okx.com/download', 1500);
+        }
 
         async function fetchData() {
             try {
@@ -115,8 +151,7 @@
                             image: coin.image,
                             price: coin.current_price,
                             change24h: coin.price_change_percentage_24h || 0,
-                            sparkline: coin.sparkline_in_7d.price,
-                            isFavorite: true
+                            sparkline: coin.sparkline_in_7d.price
                         }));
                     }
                 }
@@ -125,7 +160,7 @@
                 renderTable();
                 document.getElementById('last-update').textContent = new Date().toLocaleString();
             } catch (err) {
-                document.querySelector('#tokens-table tbody').innerHTML = `<tr><td colspan="4" style="padding:20px;color:#94a3b8;">Loading... retrying soon</td></tr>`;
+                document.querySelector('#tokens-table tbody').innerHTML = `<tr><td colspan="4" style="padding:20px;color:#94a3b8;">Loading... please wait</td></tr>`;
             }
         }
 
@@ -144,7 +179,10 @@
                 const row = document.createElement('tr');
                 row.className = 'token-row';
                 row.dataset.id = token.id;
-                row.onclick = () => toggleExpand(token, row);
+                row.onclick = (e) => {
+                    e.stopPropagation();
+                    toggleExpand(token, row);
+                };
                 row.innerHTML = `
                     <td><img class="token-icon" src="${token.image}" alt="${token.symbol}"></td>
                     <td>
@@ -166,15 +204,6 @@
                     data: { datasets: [{ data: token.sparkline, borderColor: isUp ? '#10b981' : '#ef4444', tension: 0.4, pointRadius: 0, borderWidth: 2 }] },
                     options: { responsive: true, maintainAspectRatio: false, scales: { x: { display: false }, y: { display: false } }, plugins: { legend: { display: false }, tooltip: { enabled: false } } }
                 });
-
-                // Insert detail row if expanded
-                if (expandedTokenId === token.id) {
-                    const detailRow = document.createElement('tr');
-                    detailRow.className = 'detail-row';
-                    detailRow.innerHTML = `<td colspan="4" class="detail-content" id="detail-${token.id}"></td>`;
-                    tbody.insertBefore(detailRow, row.nextSibling);
-                    renderDetails(token);
-                }
             });
 
             if (topTokens.length > 0 && favorites.length > 0) {
@@ -185,112 +214,164 @@
         }
 
         async function toggleExpand(token, clickedRow) {
-            const wasExpanded = expandedTokenId === token.id;
-            
-            // Collapse any open
-            if (expandedTokenId) {
-                const oldDetail = document.getElementById(`detail-${expandedTokenId}`);
-                if (oldDetail) oldDetail.parentElement.remove();
+            // Collapse previous
+            if (expandedTokenId && expandedTokenId !== token.id) {
+                const prevDetail = document.querySelector(`#detail-${expandedTokenId}`);
+                if (prevDetail) prevDetail.remove();
+                if (currentChart) currentChart.destroy();
             }
 
-            if (wasExpanded) {
+            // Toggle current
+            const existingDetail = document.querySelector(`#detail-${token.id}`);
+            if (existingDetail) {
+                existingDetail.remove();
+                if (currentChart) currentChart.destroy();
                 expandedTokenId = null;
                 return;
             }
 
-            // Expand new
             expandedTokenId = token.id;
+
+            // Create detail row
             const detailRow = document.createElement('tr');
             detailRow.className = 'detail-row';
-            detailRow.innerHTML = `<td colspan="4" class="detail-content"><div style="text-align:center;padding:20px;">Loading details...</div></td>`;
+            detailRow.id = `detail-${token.id}`;
+            detailRow.innerHTML = `<td colspan="4" class="detail-content"><div style="text-align:center;padding:30px;">Loading details...</div></td>`;
             clickedRow.parentNode.insertBefore(detailRow, clickedRow.nextSibling);
 
+            // Load if not cached
             if (!tokenCache[token.id]) {
-                await loadAllDetails(token);
-                tokenCache[token.id] = { overview: document.createElement('div'), community: document.createElement('div'), about: document.createElement('div') };
-                tokenCache[token.id].overview.innerHTML = document.getElementById('overview-temp')?.innerHTML || '';
-                tokenCache[token.id].community.innerHTML = document.getElementById('community-temp')?.innerHTML || '';
-                tokenCache[token.id].about.innerHTML = document.getElementById('about-temp')?.innerHTML || '';
+                await loadTokenDetails(token);
             }
 
-            renderDetails(token);
+            // Render cached content
+            renderCachedDetails(token);
         }
 
-        function renderDetails(token) {
-            const container = document.getElementById(`detail-${token.id}`);
-            if (!container) return;
+        async function loadTokenDetails(token) {
+            tokenCache[token.id] = { overview: '', community: '', about: '' };
 
-            const cache = tokenCache[token.id];
-            container.innerHTML = `
-                <div class="tabs">
-                    <button class="tab-btn active" onclick="showDetailTab('overview', '${token.id}')">Overview</button>
-                    <button class="tab-btn" onclick="showDetailTab('community', '${token.id}')">Community</button>
-                    <button class="tab-btn" onclick="showDetailTab('about', '${token.id}')">About</button>
-                </div>
-                <div id="panel-overview-${token.id}" class="tab-panel active">${cache.overview.innerHTML}</div>
-                <div id="panel-community-${token.id}" class="tab-panel">${cache.community.innerHTML}</div>
-                <div id="panel-about-${token.id}" class="tab-panel">${cache.about.innerHTML}</div>
-            `;
-        }
-
-        window.showDetailTab = function(tab, tokenId) {
-            document.querySelectorAll(`#detail-${tokenId} .tab-btn`).forEach(b => b.classList.remove('active'));
-            document.querySelector(`#detail-${tokenId} [onclick="showDetailTab('${tab}', '${tokenId}')"]`).classList.add('active');
-            document.querySelectorAll(`#detail-${tokenId} .tab-panel`).forEach(p => p.classList.remove('active'));
-            document.getElementById(`panel-${tab}-${tokenId}`).classList.add('active');
-        };
-
-        async function loadAllDetails(token) {
-            // Temporary holders
-            document.body.insertAdjacentHTML('beforeend', `<div id="overview-temp" style="display:none;"></div><div id="community-temp" style="display:none;"></div><div id="about-temp" style="display:none;"></div>`);
-
-            // Load Overview
+            // Overview + Chart
             const histRes = await fetch(`https://api.coingecko.com/api/v3/coins/${token.id}/market_chart?vs_currency=usd&days=365`);
             const histData = histRes.ok ? await histRes.json() : { prices: [] };
-            const prices = histData.prices.map(p => p[1]);
+            const prices = histData.prices.map(p => p[1]) || [];
             const sma50 = calculateSMA(prices, 50);
             const sma200 = calculateSMA(prices, 200);
             const rsiValues = calculateRSI(prices, 14);
             const latestRSI = rsiValues[rsiValues.length - 1]?.toFixed(1) || 'N/A';
 
-            let combined = 'Hold', actionHtml = '<strong>Hold</strong>';
-            const hasBuy = latestRSI < 30 || sma50[sma50.length-1] > sma200[sma200.length-1];
-            const hasSell = latestRSI > 70 || sma50[sma50.length-1] < sma200[sma200.length-1];
-            if (hasBuy) { combined = 'Buy'; actionHtml = `<a class="action-btn buy-btn" onclick="openOKXSpotTrading('${token.symbol.toLowerCase()}-usdt')">BUY on OKX</a>`; }
-            if (hasSell) { combined = 'Sell'; actionHtml = `<a class="action-btn sell-btn" onclick="openOKXSpotTrading('${token.symbol.toLowerCase()}-usdt')">SELL on OKX</a>`; }
+            let signal = 'Hold';
+            let actionBtn = '<strong style="color:#fff;">Hold</strong>';
+            const goldenCross = sma50[sma50.length - 1] > sma200[sma200.length - 1];
+            const deathCross = sma50[sma50.length - 1] < sma200[sma200.length - 1];
+            const oversold = latestRSI < 30;
+            const overbought = latestRSI > 70;
 
-            document.getElementById('overview-temp').innerHTML = `
+            if (goldenCross || oversold) {
+                signal = goldenCross && oversold ? 'Strong Buy' : 'Buy';
+                actionBtn = `<a class="action-btn buy-btn" onclick="openOKXSpotTrading('${token.symbol.toLowerCase()}-usdt')">BUY on OKX</a>`;
+            } else if (deathCross || overbought) {
+                signal = deathCross && overbought ? 'Strong Sell' : 'Sell';
+                actionBtn = `<a class="action-btn sell-btn" onclick="openOKXSpotTrading('${token.symbol.toLowerCase()}-usdt')">SELL on OKX</a>`;
+            }
+
+            tokenCache[token.id].overview = `
                 <div style="margin-bottom:20px;">
-                    <strong>Signal:</strong> ${combined}<br>
+                    <strong>Signal:</strong> ${signal}<br>
                     <strong>RSI (14):</strong> ${latestRSI}<br><br>
-                    ${actionHtml}
+                    ${actionBtn}
                 </div>
                 <div class="chart-container"><canvas id="detail-chart-${token.id}"></canvas></div>
             `;
 
-            new Chart(document.getElementById(`detail-chart-${token.id}`), {
-                type: 'line',
-                data: { labels: histData.prices.map((_, i) => i % 30 === 0 ? `Day ${i}` : ''), datasets: [
-                    { label: 'Price', data: prices, borderColor: '#3b82f6', fill: false },
-                    { label: '50 SMA', data: sma50, borderColor: '#f59e0b', fill: false },
-                    { label: '200 SMA', data: sma200, borderColor: '#ef4444', fill: false }
-                ]},
-                options: { responsive: true, maintainAspectRatio: false }
-            });
-
-            // Load Community & About (same as before)
-            // ... (reuse your previous loadCommunity and loadAbout logic, writing to community-temp and about-temp)
-
-            // Clean up temp
+            // Create chart now
             setTimeout(() => {
-                ['overview-temp', 'community-temp', 'about-temp'].forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) el.remove();
+                if (currentChart) currentChart.destroy();
+                const ctx = document.getElementById(`detail-chart-${token.id}`);
+                if (ctx) {
+                    currentChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: histData.prices.map((_, i) => i % 30 === 0 ? `Day ${i}` : ''),
+                            datasets: [
+                                { label: 'Price', data: prices, borderColor: '#3b82f6', fill: false },
+                                { label: '50 SMA', data: sma50, borderColor: '#f59e0b', fill: false },
+                                { label: '200 SMA', data: sma200, borderColor: '#ef4444', fill: false }
+                            ]
+                        },
+                        options: { responsive: true, maintainAspectRatio: false }
+                    });
+                }
+            }, 100);
+
+            // Community
+            const newsRes = await fetch(`https://cryptopanic.com/api/v1/posts/?auth_token=${CRYPTOPANIC_TOKEN}&currencies=${token.symbol}&kind=news&public=true`);
+            const newsData = await newsRes.json();
+            let newsHTML = '<p>No recent news.</p>';
+            if (newsData.results?.length > 0) {
+                newsHTML = '';
+                newsData.results.slice(0, 6).forEach(post => {
+                    newsHTML += `
+                        <div class="news-item">
+                            <a href="${post.url}" target="_blank">${post.title}</a>
+                            <p><small>${new Date(post.published_at).toLocaleDateString()} • ${post.domain}</small></p>
+                        </div>
+                    `;
                 });
-            }, 1000);
+            }
+            tokenCache[token.id].community = newsHTML;
+
+            // About
+            const aboutRes = await fetch(`https://api.coingecko.com/api/v3/coins/${token.id}?localization=false&tickers=false&market_data=false&community_data=true&developer_data=false`);
+            const aboutData = await aboutRes.json();
+            let desc = aboutData.description?.en || 'No description available.';
+            if (desc.length > 600) desc = desc.substring(0, 600) + '...';
+            tokenCache[token.id].about = `
+                <h3 style="margin-top:0;">About ${aboutData.name}</h3>
+                <p style="line-height:1.6;">${desc}</p>
+                ${aboutData.links?.homepage?.[0] ? `<p><strong>Website:</strong> <a href="${aboutData.links.homepage[0]}" target="_blank">${aboutData.links.homepage[0]}</a></p>` : ''}
+            `;
         }
 
-        // Keep your existing calculateSMA, calculateRSI, openOKXSpotTrading, searchToken functions
+        function renderCachedDetails(token) {
+            const container = document.querySelector(`#detail-${token.id} .detail-content`);
+            if (!container) return;
+
+            const cache = tokenCache[token.id];
+            container.innerHTML = `
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="showTab('overview', '${token.id}')">Overview</button>
+                    <button class="tab-btn" onclick="showTab('community', '${token.id}')">Community</button>
+                    <button class="tab-btn" onclick="showTab('about', '${token.id}')">About</button>
+                </div>
+                <div id="tab-overview-${token.id}" class="tab-panel active">${cache.overview}</div>
+                <div id="tab-community-${token.id}" class="tab-panel">${cache.community}</div>
+                <div id="tab-about-${token.id}" class="tab-panel">${cache.about}</div>
+            `;
+        }
+
+        window.showTab = function(tab, tokenId) {
+            document.querySelectorAll(`#detail-${tokenId} .tab-btn`).forEach(b => b.classList.remove('active'));
+            document.querySelector(`#detail-${tokenId} [onclick="showTab('${tab}', '${tokenId}')"]`).classList.add('active');
+            document.querySelectorAll(`#detail-${tokenId} .tab-panel`).forEach(p => p.classList.remove('active'));
+            document.getElementById(`tab-${tab}-${tokenId}`).classList.add('active');
+        };
+
+        async function searchToken(query) {
+            const res = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`);
+            const data = await res.json();
+            if (data.coins?.length > 0) {
+                const id = data.coins[0].id;
+                if (!favorites.includes(id)) {
+                    favorites.push(id);
+                    localStorage.setItem('cryptoFavorites', JSON.stringify(favorites));
+                }
+                await fetchData();
+                document.getElementById('search-input').value = '';
+            } else {
+                alert('Token not found.');
+            }
+        }
 
         document.getElementById('add-favorite').onclick = () => {
             const q = document.getElementById('search-input').value.trim();
@@ -298,7 +379,7 @@
         };
 
         fetchData();
-        setInterval(fetchData, 300000);
+        setInterval(fetchData, 300000); // 5 minutes
     </script>
 </body>
 </html>
