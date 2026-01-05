@@ -75,7 +75,7 @@
 
     <script>
         const CRYPTOPANIC_TOKEN = '1c5d36d83941f66b7c828ee52b1017ea4e019f9f';
-        const CORS_PROXY = 'https://cors.bridged.cc/'; // Reliable in 2026
+        const NEWS_PROXY = 'https://api.allorigins.win/get?url=';
         let favorites = JSON.parse(localStorage.getItem('cryptoFavorites') || '[]');
         let topTokens = [];
         let allTokens = [];
@@ -118,9 +118,16 @@
             return rsi;
         }
 
-        function openOKXTrading(pair) {
+        // OKX App deep link - works even when website is blocked
+        function openOKXApp(pair) {
             const tradeUrl = `https://www.okx.com/trade-spot/${pair}`;
-            window.open(tradeUrl, '_blank');
+            const encodedTradeUrl = encodeURIComponent(tradeUrl);
+            const deepLink = `okx://wallet/dapp/url?dappUrl=${encodedTradeUrl}`;
+            const universalLink = `https://www.okx.com/download?deeplink=${encodeURIComponent(deepLink)}`;
+            window.location.href = universalLink;
+            setTimeout(() => {
+                window.location.href = 'https://www.okx.com/download';
+            }, 1500);
         }
 
         async function fetchData() {
@@ -247,7 +254,6 @@
             tokenCache[token.id].community = '<p>Loading news...</p>';
             tokenCache[token.id].about = '<p>Loading info...</p>';
 
-            // Overview & Chart
             try {
                 const histRes = await fetch(`https://api.coingecko.com/api/v3/coins/${token.id}/market_chart?vs_currency=usd&days=365`);
                 if (histRes.ok) {
@@ -262,10 +268,10 @@
                     let actionBtn = '<strong>Hold</strong>';
                     if (latestRSI < 30 || sma50[sma50.length - 1] > sma200[sma200.length - 1]) {
                         signal = 'Buy';
-                        actionBtn = `<a class="action-btn buy-btn" onclick="openOKXTrading('${token.symbol.toLowerCase()}-usdt')">BUY on OKX</a>`;
+                        actionBtn = `<a class="action-btn buy-btn" onclick="openOKXApp('${token.symbol.toLowerCase()}-usdt')">BUY on OKX App</a>`;
                     } else if (latestRSI > 70 || sma50[sma50.length - 1] < sma200[sma200.length - 1]) {
                         signal = 'Sell';
-                        actionBtn = `<a class="action-btn sell-btn" onclick="openOKXTrading('${token.symbol.toLowerCase()}-usdt')">SELL on OKX</a>`;
+                        actionBtn = `<a class="action-btn sell-btn" onclick="openOKXApp('${token.symbol.toLowerCase()}-usdt')">SELL on OKX App</a>`;
                     }
 
                     tokenCache[token.id].overview = `
@@ -297,15 +303,15 @@
                     }, 100);
                 }
             } catch (e) {
-                tokenCache[token.id].overview = '<p>Chart temporarily unavailable (rate limited).</p>';
+                tokenCache[token.id].overview = '<p>Chart temporarily unavailable.</p>';
             }
 
-            // Community
             try {
-                const newsUrl = `${CORS_PROXY}https://cryptopanic.com/api/v1/posts/?auth_token=${CRYPTOPANIC_TOKEN}&currencies=${token.symbol}&kind=news&public=true`;
+                const newsUrl = `${NEWS_PROXY}${encodeURIComponent('https://cryptopanic.com/api/v1/posts/?auth_token=' + CRYPTOPANIC_TOKEN + '&currencies=' + token.symbol + '&kind=news&public=true')}`;
                 const newsRes = await fetch(newsUrl);
                 if (newsRes.ok) {
-                    const newsData = await newsRes.json();
+                    const proxyData = await newsRes.json();
+                    const newsData = JSON.parse(proxyData.contents);
                     let newsHTML = '<p>No recent news.</p>';
                     if (newsData.results?.length > 0) {
                         newsHTML = '';
@@ -324,7 +330,6 @@
                 tokenCache[token.id].community = '<p>News temporarily unavailable.</p>';
             }
 
-            // About
             try {
                 const aboutRes = await fetch(`https://api.coingecko.com/api/v3/coins/${token.id}?localization=false&tickers=false&market_data=false&community_data=true&developer_data=false`);
                 if (aboutRes.ok) {
@@ -338,7 +343,7 @@
                     `;
                 }
             } catch (e) {
-                tokenCache[token.id].about = '<p>About info temporarily unavailable (rate limited).</p>';
+                tokenCache[token.id].about = '<p>About info temporarily unavailable.</p>';
             }
         }
 
