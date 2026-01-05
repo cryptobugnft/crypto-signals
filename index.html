@@ -75,7 +75,7 @@
 
     <script>
         const CRYPTOPANIC_TOKEN = '1c5d36d83941f66b7c828ee52b1017ea4e019f9f';
-        const CORS_PROXY = 'https://corsproxy.io/?';
+        const CORS_PROXY = 'https://cors.bridged.cc/'; // Reliable in 2026
         let favorites = JSON.parse(localStorage.getItem('cryptoFavorites') || '[]');
         let topTokens = [];
         let allTokens = [];
@@ -118,7 +118,6 @@
             return rsi;
         }
 
-        // Fixed OKX trading link - opens trading page directly
         function openOKXTrading(pair) {
             const tradeUrl = `https://www.okx.com/trade-spot/${pair}`;
             window.open(tradeUrl, '_blank');
@@ -160,7 +159,7 @@
                 renderTable();
                 document.getElementById('last-update').textContent = new Date().toLocaleString();
             } catch (err) {
-                document.querySelector('#tokens-table tbody').innerHTML = `<tr><td colspan="4" style="padding:20px;color:#94a3b8;">Loading... (rate limited). Refresh in a minute.</td></tr>`;
+                document.querySelector('#tokens-table tbody').innerHTML = `<tr><td colspan="4" style="padding:20px;color:#94a3b8;">API rate limited. Refresh in 1-2 minutes.</td></tr>`;
             }
         }
 
@@ -244,10 +243,11 @@
         }
 
         async function loadTokenDetails(token) {
-            tokenCache[token.id].overview = '<p>Loading...</p>';
-            tokenCache[token.id].community = '<p>Loading...</p>';
-            tokenCache[token.id].about = '<p>Loading...</p>';
+            tokenCache[token.id].overview = '<p>Loading chart...</p>';
+            tokenCache[token.id].community = '<p>Loading news...</p>';
+            tokenCache[token.id].about = '<p>Loading info...</p>';
 
+            // Overview & Chart
             try {
                 const histRes = await fetch(`https://api.coingecko.com/api/v3/coins/${token.id}/market_chart?vs_currency=usd&days=365`);
                 if (histRes.ok) {
@@ -297,9 +297,10 @@
                     }, 100);
                 }
             } catch (e) {
-                tokenCache[token.id].overview = '<p>Chart temporarily unavailable.</p>';
+                tokenCache[token.id].overview = '<p>Chart temporarily unavailable (rate limited).</p>';
             }
 
+            // Community
             try {
                 const newsUrl = `${CORS_PROXY}https://cryptopanic.com/api/v1/posts/?auth_token=${CRYPTOPANIC_TOKEN}&currencies=${token.symbol}&kind=news&public=true`;
                 const newsRes = await fetch(newsUrl);
@@ -323,6 +324,7 @@
                 tokenCache[token.id].community = '<p>News temporarily unavailable.</p>';
             }
 
+            // About
             try {
                 const aboutRes = await fetch(`https://api.coingecko.com/api/v3/coins/${token.id}?localization=false&tickers=false&market_data=false&community_data=true&developer_data=false`);
                 if (aboutRes.ok) {
@@ -336,7 +338,7 @@
                     `;
                 }
             } catch (e) {
-                tokenCache[token.id].about = '<p>About info temporarily unavailable.</p>';
+                tokenCache[token.id].about = '<p>About info temporarily unavailable (rate limited).</p>';
             }
         }
 
