@@ -13,7 +13,6 @@
             background: #f0f0f0; 
             display: flex; 
             flex-direction: column; 
-            min-height: 100vh; 
         }
         h1 { text-align: center; font-size: 1.6em; margin: 10px 0; }
         h1 small { display: block; font-size: 0.7em; color: #666; }
@@ -21,24 +20,22 @@
         table { 
             width: 100%; 
             border-collapse: collapse; 
-            margin: 15px 0; 
+            margin: 10px 0; 
             font-size: 0.9em; 
-            overflow-x: auto; 
-            display: block; 
-            white-space: nowrap; 
+            table-layout: fixed;
         }
         th, td { 
             border: 1px solid #ccc; 
-            padding: 10px; 
+            padding: 8px; 
             text-align: center; 
-            min-width: 80px; 
+            word-wrap: break-word;
         }
-        th { background: #ddd; }
+        th { background: #ddd; font-size: 0.8em; }
         .buy { background: #d4edda; color: #155724; }
         .sell { background: #f8d7da; color: #721c24; }
         .neutral { background: #fff3cd; color: #856404; }
         .action-btn {
-            padding: 14px;
+            padding: 12px;
             font-size: 1.1em;
             font-weight: bold;
             border: none;
@@ -46,38 +43,44 @@
             cursor: pointer;
             text-decoration: none;
             display: block;
-            width: 95%;
+            width: 90%;
             margin: 8px auto;
         }
         .buy-btn { background: #28a745; color: white; }
         .sell-btn { background: #dc3545; color: white; }
-        #charts { flex: 1; }
-        canvas { 
-            max-width: 100%; 
-            height: auto !important; 
-            background: white; 
-            margin: 15px 0; 
-            border: 1px solid #ddd; 
-            border-radius: 8px; 
+        #charts { margin-top: 20px; }
+        .chart-container {
+            position: relative;
+            height: 250px; /* Fixed height to prevent eating page */
+            width: 100%;
+            margin-bottom: 30px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
+        canvas { 
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+        }
+        h2 { text-align: center; font-size: 1.2em; margin: 10px 0 5px; }
         @media (min-width: 600px) {
-            table { display: table; white-space: normal; }
             th, td { padding: 12px; font-size: 1em; }
-            .action-btn { width: 80%; font-size: 1.2em; }
+            .action-btn { width: 70%; font-size: 1.2em; }
             h1 { font-size: 2em; }
+            .chart-container { height: 300px; }
         }
     </style>
 </head>
 <body>
     <h1>Crypto Signals<br><small>BTC • BCH • TRX</small></h1>
     <p>Last updated: <span id="last-update"></span></p>
-    <p><strong>Tap BUY/SELL → opens OKX App directly to trading page</strong></p>
+    <p><strong>Tap BUY/SELL → opens OKX App directly to spot trading page</strong></p>
 
     <table id="signals-table">
         <thead>
             <tr>
                 <th>Token</th>
-                <th>Price (USD)</th>
+                <th>Price USD</th>
                 <th>MA Signal</th>
                 <th>RSI Signal</th>
                 <th>Suggestion</th>
@@ -96,23 +99,15 @@
             { name: 'TRX', id: 'tron', pair: 'trx-usdt' }
         ];
 
-        function openOKXTrading(pair) {
-            // Mobile trading URL (opens chart + order panel for the pair)
+        function openOKXSpotTrading(pair) {
             const tradeUrl = `https://www.okx.com/trade-spot/${pair}`;
-            
-            // Encode it properly
             const encodedTradeUrl = encodeURIComponent(tradeUrl);
-            
-            // Deep link to open in OKX app's built-in browser → directly to trading page
             const deepLink = `okx://wallet/dapp/url?dappUrl=${encodedTradeUrl}`;
-            
-            // Universal link: opens app if installed, else download page
-            const universal = `https://www.okx.com/download?deeplink=${encodeURIComponent(deepLink)}`;
-            
-            // Attempt to open
-            window.location.href = universal;
-            
-            // Fallback to download if app not detected (after delay)
+            const universalLink = `https://www.okx.com/download?deeplink=${encodeURIComponent(deepLink)}`;
+
+            window.location.href = universalLink;
+
+            // Fallback to download page if app not opened
             setTimeout(() => {
                 window.location.href = 'https://www.okx.com/download';
             }, 1500);
@@ -178,8 +173,8 @@
                 const latestRSI = rsiValues[rsiValues.length - 1]?.toFixed(1) || 'N/A';
 
                 let maSignal = 'Neutral', maClass = 'neutral';
-                if (latestSMA50 > latestSMA200) { maSignal = 'Buy (Golden Cross)'; maClass = 'buy'; }
-                else if (latestSMA50 < latestSMA200) { maSignal = 'Sell (Death Cross)'; maClass = 'sell'; }
+                if (latestSMA50 > latestSMA200) { maSignal = 'Buy (Golden)'; maClass = 'buy'; }
+                else if (latestSMA50 < latestSMA200) { maSignal = 'Sell (Death)'; maClass = 'sell'; }
 
                 let rsiSignal = 'Neutral', rsiClass = 'neutral';
                 if (latestRSI < 30) { rsiSignal = 'Buy (Oversold)'; rsiClass = 'buy'; }
@@ -195,9 +190,9 @@
                 else if (maClass === 'sell' || rsiClass === 'sell') { combined = 'Sell'; actionClass = 'sell'; }
 
                 if (actionClass === 'buy') {
-                    actionHtml = `<a class="action-btn buy-btn" onclick="openOKXTrading('${token.pair}'); return false;">BUY on OKX App</a>`;
+                    actionHtml = `<a class="action-btn buy-btn" onclick="openOKXSpotTrading('${token.pair}'); return false;">BUY on OKX</a>`;
                 } else if (actionClass === 'sell') {
-                    actionHtml = `<a class="action-btn sell-btn" onclick="openOKXTrading('${token.pair}'); return false;">SELL on OKX App</a>`;
+                    actionHtml = `<a class="action-btn sell-btn" onclick="openOKXSpotTrading('${token.pair}'); return false;">SELL on OKX</a>`;
                 }
 
                 const row = document.createElement('tr');
@@ -205,15 +200,16 @@
                     <td><strong>${token.name}</strong></td>
                     <td>$${currentPrice}</td>
                     <td class="${maClass}">${maSignal}</td>
-                    <td class="${rsiClass}">${rsiSignal} (RSI: ${latestRSI})</td>
+                    <td class="${rsiClass}">${rsiSignal}<br>(RSI: ${latestRSI})</td>
                     <td><strong>${combined}</strong></td>
                     <td>${actionHtml}</td>
                 `;
                 tableBody.appendChild(row);
 
-                const chartDiv = document.createElement('div');
-                chartDiv.innerHTML = `<h2>${token.name} (365 days)</h2><canvas id="chart-${token.name}"></canvas>`;
-                chartsDiv.appendChild(chartDiv);
+                // Chart with fixed container
+                const chartWrapper = document.createElement('div');
+                chartWrapper.innerHTML = `<h2>${token.name} - Last 365 Days</h2><div class="chart-container"><canvas id="chart-${token.name}"></canvas></div>`;
+                chartsDiv.appendChild(chartWrapper);
 
                 const ctx = document.getElementById(`chart-${token.name}`).getContext('2d');
                 new Chart(ctx, {
@@ -226,8 +222,8 @@
                             { label: '200 SMA', data: sma200, borderColor: '#dc3545', fill: false }
                         ]
                     },
-                    options: { 
-                        responsive: true, 
+                    options: {
+                        responsive: true,
                         maintainAspectRatio: false,
                         scales: { y: { beginAtZero: false } }
                     }
@@ -236,7 +232,7 @@
         }
 
         fetchData();
-        setInterval(fetchData, 300000); // 5 minutes
+        setInterval(fetchData, 300000); // Refresh every 5 minutes
     </script>
 </body>
 </html>
