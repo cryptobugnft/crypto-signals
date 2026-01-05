@@ -2,40 +2,76 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Crypto Signals: BTC • BCH • TRX</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; margin: 15px; background: #f0f0f0; }
-        h1 { text-align: center; font-size: 1.8em; }
-        p { text-align: center; }
-        table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 1em; }
-        th, td { border: 1px solid #ccc; padding: 12px; text-align: center; }
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 10px; 
+            background: #f0f0f0; 
+            display: flex; 
+            flex-direction: column; 
+            min-height: 100vh; 
+        }
+        h1 { text-align: center; font-size: 1.6em; margin: 10px 0; }
+        h1 small { display: block; font-size: 0.7em; color: #666; }
+        p { text-align: center; margin: 8px 0; font-size: 0.9em; }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin: 15px 0; 
+            font-size: 0.9em; 
+            overflow-x: auto; 
+            display: block; 
+            white-space: nowrap; 
+        }
+        th, td { 
+            border: 1px solid #ccc; 
+            padding: 10px; 
+            text-align: center; 
+            min-width: 80px; 
+        }
         th { background: #ddd; }
         .buy { background: #d4edda; color: #155724; }
         .sell { background: #f8d7da; color: #721c24; }
         .neutral { background: #fff3cd; color: #856404; }
         .action-btn {
-            padding: 14px 24px;
-            font-size: 1.2em;
+            padding: 14px;
+            font-size: 1.1em;
             font-weight: bold;
             border: none;
             border-radius: 8px;
             cursor: pointer;
             text-decoration: none;
             display: block;
-            width: 90%;
-            margin: 10px auto;
+            width: 95%;
+            margin: 8px auto;
         }
         .buy-btn { background: #28a745; color: white; }
         .sell-btn { background: #dc3545; color: white; }
-        canvas { max-width: 100%; height: 300px; background: white; margin-top: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        #charts { flex: 1; }
+        canvas { 
+            max-width: 100%; 
+            height: auto !important; 
+            background: white; 
+            margin: 15px 0; 
+            border: 1px solid #ddd; 
+            border-radius: 8px; 
+        }
+        @media (min-width: 600px) {
+            table { display: table; white-space: normal; }
+            th, td { padding: 12px; font-size: 1em; }
+            .action-btn { width: 80%; font-size: 1.2em; }
+            h1 { font-size: 2em; }
+        }
     </style>
 </head>
 <body>
     <h1>Crypto Signals<br><small>BTC • BCH • TRX</small></h1>
     <p>Last updated: <span id="last-update"></span></p>
-    <p><strong>Tap BUY or SELL → opens OKX APP directly (even if website is blocked)</strong></p>
+    <p><strong>Tap BUY/SELL → opens OKX App directly to trading page</strong></p>
 
     <table id="signals-table">
         <thead>
@@ -60,27 +96,28 @@
             { name: 'TRX', id: 'tron', pair: 'trx-usdt' }
         ];
 
-        function openOKXApp(pair) {
-            // Trading page URL on web
-            const webUrl = `https://www.okx.com/trade-spot/${pair}`;
+        function openOKXTrading(pair) {
+            // Mobile trading URL (opens chart + order panel for the pair)
+            const tradeUrl = `https://www.okx.com/trade-spot/${pair}`;
             
-            // Encode it for deep link (OKX mobile detects trading pages and opens app)
-            const encodedWebUrl = encodeURIComponent(webUrl);
-            const deepLink = `okx://trade?url=${encodedWebUrl}`;
+            // Encode it properly
+            const encodedTradeUrl = encodeURIComponent(tradeUrl);
             
-            // Universal fallback: redirects to app if installed, or download page if not
-            const universalLink = `https://www.okx.com/download?deeplink=${encodeURIComponent(deepLink)}`;
+            // Deep link to open in OKX app's built-in browser → directly to trading page
+            const deepLink = `okx://wallet/dapp/url?dappUrl=${encodedTradeUrl}`;
             
-            // Try to open app directly
-            window.location.href = universalLink;
+            // Universal link: opens app if installed, else download page
+            const universal = `https://www.okx.com/download?deeplink=${encodeURIComponent(deepLink)}`;
             
-            // Fallback after 2 seconds (in case app not installed)
+            // Attempt to open
+            window.location.href = universal;
+            
+            // Fallback to download if app not detected (after delay)
             setTimeout(() => {
                 window.location.href = 'https://www.okx.com/download';
-            }, 2000);
+            }, 1500);
         }
 
-        // Rest of your calculation functions (SMA, RSI) remain the same
         function calculateSMA(prices, period) {
             const sma = [];
             for (let i = 0; i < prices.length; i++) {
@@ -124,7 +161,6 @@
             document.getElementById('last-update').textContent = new Date().toLocaleString();
 
             for (const token of tokens) {
-                // Price & History fetch (same as before)
                 const priceRes = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${token.id}&vs_currencies=usd`);
                 const priceData = await priceRes.json();
                 const currentPrice = priceData[token.id].usd.toFixed(2);
@@ -141,7 +177,6 @@
                 const latestSMA200 = sma200[sma200.length - 1];
                 const latestRSI = rsiValues[rsiValues.length - 1]?.toFixed(1) || 'N/A';
 
-                // Signals logic (same)
                 let maSignal = 'Neutral', maClass = 'neutral';
                 if (latestSMA50 > latestSMA200) { maSignal = 'Buy (Golden Cross)'; maClass = 'buy'; }
                 else if (latestSMA50 < latestSMA200) { maSignal = 'Sell (Death Cross)'; maClass = 'sell'; }
@@ -160,12 +195,11 @@
                 else if (maClass === 'sell' || rsiClass === 'sell') { combined = 'Sell'; actionClass = 'sell'; }
 
                 if (actionClass === 'buy') {
-                    actionHtml = `<a class="action-btn buy-btn" onclick="openOKXApp('${token.pair}'); return false;">BUY on OKX App</a>`;
+                    actionHtml = `<a class="action-btn buy-btn" onclick="openOKXTrading('${token.pair}'); return false;">BUY on OKX App</a>`;
                 } else if (actionClass === 'sell') {
-                    actionHtml = `<a class="action-btn sell-btn" onclick="openOKXApp('${token.pair}'); return false;">SELL on OKX App</a>`;
+                    actionHtml = `<a class="action-btn sell-btn" onclick="openOKXTrading('${token.pair}'); return false;">SELL on OKX App</a>`;
                 }
 
-                // Table row
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td><strong>${token.name}</strong></td>
@@ -177,7 +211,6 @@
                 `;
                 tableBody.appendChild(row);
 
-                // Chart (same as before)
                 const chartDiv = document.createElement('div');
                 chartDiv.innerHTML = `<h2>${token.name} (365 days)</h2><canvas id="chart-${token.name}"></canvas>`;
                 chartsDiv.appendChild(chartDiv);
@@ -188,12 +221,16 @@
                     data: {
                         labels: histData.prices.map((_, i) => i % 30 === 0 ? `Day ${i}` : ''),
                         datasets: [
-                            { label: 'Price', data: prices, borderColor: '#007bff', fill: false },
+                            { label: 'Price', data: prices, borderColor: '#007bff', fill: false, tension: 0.1 },
                             { label: '50 SMA', data: sma50, borderColor: '#fd7e14', fill: false },
                             { label: '200 SMA', data: sma200, borderColor: '#dc3545', fill: false }
                         ]
                     },
-                    options: { responsive: true }
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false,
+                        scales: { y: { beginAtZero: false } }
+                    }
                 });
             }
         }
