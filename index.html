@@ -52,7 +52,7 @@
     <p>Top 10 Cryptos & Favorites | Last updated: <span id="last-update"></span></p>
     
     <div id="search-container">
-        <input id="search-input" type="text" placeholder="Search for a token (e.g., bitcoin)">
+        <input id="search-input" type="text" placeholder="Search token (e.g., solana)">
         <button id="add-favorite">Add to Favorites</button>
     </div>
     
@@ -70,17 +70,17 @@
     </div>
 
     <script>
+        const CRYPTOPANIC_TOKEN = '1c5d36d83941f66b7c828ee52b1017ea4e019f9f'; // Your token here
+
         let selectedToken = null;
-        let favorites = JSON.parse(localStorage.getItem('cryptoFavorites')) || [];
+        let favorites = JSON.parse(localStorage.getItem('cryptoFavorites') || '[]');
         let topTokens = [];
-        let allTokens = new Set(); // To avoid duplicates
+        let chartInstance = null;
 
         async function fetchTopTokens() {
             const res = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1');
             const data = await res.json();
             topTokens = data.map(coin => ({ name: coin.name, id: coin.id, symbol: coin.symbol.toUpperCase() }));
-            topTokens.forEach(token => allTokens.add(token.id));
-            favorites.forEach(id => allTokens.add(id));
             renderTokenList();
         }
 
@@ -93,7 +93,6 @@
             });
             favorites.forEach(id => {
                 if (!topTokens.some(t => t.id === id)) {
-                    // Fetch name if needed, but for simplicity assume id is known
                     const btn = document.createElement('button');
                     btn.className = 'token-btn';
                     btn.textContent = id.charAt(0).toUpperCase() + id.slice(1);
@@ -116,11 +115,11 @@
         async function selectToken(token) {
             selectedToken = token;
             document.querySelectorAll('.token-btn').forEach(b => b.classList.remove('selected'));
-            document.querySelector(`[data-id="${token.id}"]`).classList.add('selected');
+            document.querySelector(`[data-id="${token.id}"]`)?.classList.add('selected');
             document.getElementById('content').style.display = 'block';
             await loadOverview(token);
-            loadCommunity(token);
-            loadAbout(token);
+            await loadCommunity(token);
+            await loadAbout(token);
             showTab('overview');
         }
 
@@ -134,12 +133,11 @@
         async function loadOverview(token) {
             const div = document.getElementById('overview');
             div.innerHTML = '<p>Loading...</p>';
-            // Fetch current price
+
             const priceRes = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${token.id}&vs_currencies=usd`);
             const priceData = await priceRes.json();
-            const currentPrice = priceData[token.id].usd.toFixed(2);
+            const currentPrice = priceData[token.id]?.usd?.toFixed(2) || 'N/A';
 
-            // Historical data
             const histRes = await fetch(`https://api.coingecko.com/api/v3/coins/${token.id}/market_chart?vs_currency=usd&days=365`);
             const histData = await histRes.json();
             const prices = histData.prices.map(p => p[1]);
@@ -169,10 +167,12 @@
             else if (maClass === 'buy' || rsiClass === 'buy') { combined = 'Buy'; actionClass = 'buy'; }
             else if (maClass === 'sell' || rsiClass === 'sell') { combined = 'Sell'; actionClass = 'sell'; }
 
+            const pair = `${token.symbol.toLowerCase()}-usdt`;
+
             if (actionClass === 'buy') {
-                actionHtml = `<a class="action-btn buy-btn" onclick="openOKXSpotTrading('${token.symbol}-USDT'); return false;">BUY on OKX</a>`;
+                actionHtml = `<a class="action-btn buy-btn" onclick="openOKXSpotTrading('${pair}'); return false;">BUY on OKX</a>`;
             } else if (actionClass === 'sell') {
-                actionHtml = `<a class="action-btn sell-btn" onclick="openOKXSpotTrading('${token.symbol}-USDT'); return false;">SELL on OKX</a>`;
+                actionHtml = `<a class="action-btn sell-btn" onclick="openOKXSpotTrading('${pair}'); return false;">SELL on OKX</a>`;
             }
 
             div.innerHTML = `
@@ -199,12 +199,13 @@
                     </tbody>
                 </table>
                 <div class="chart-container">
-                    <canvas id="chart"></canvas>
+                    <canvas id="price-chart"></canvas>
                 </div>
             `;
 
-            const ctx = document.getElementById('chart').getContext('2d');
-            new Chart(ctx, {
+            if (chartInstance) chartInstance.destroy();
+            const ctx = document.getElementById('price-chart').getContext('2d');
+            chartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: histData.prices.map((_, i) => i % 30 === 0 ? `Day ${i}` : ''),
@@ -220,41 +221,54 @@
 
         async function loadCommunity(token) {
             const div = document.getElementById('community');
-            div.innerHTML = '<p>Loading news...</p>';
-            const symbol = token.symbol || token.name.toUpperCase(); // Use symbol if available
-            const res = await fetch(`https://cryptopanic.com/api/v1/posts/?currencies=${symbol}&kind=news&public=true`);
+            div.innerHTML = '<p>Loading latest news...</p>';
+
+            const code = token.symbol || token.id.toUpperCase();
+            const res = await fetch(`https://cryptopanic.com/api/v1/posts/?auth_token=${CRYPTOPANIC_TOKEN}&currencies=${code}&kind=news&public=true`);
             const data = await res.json();
-            div.innerHTML = '<h3>Latest News</h3>';
-            data.results.slice(0, 5).forEach(post => {
-                div.innerHTML += `
-                    <div class="news-item">
+
+            if (data.results && data.results.length > 0) {
+                div.innerHTML = '<h3>Latest News</h3><div id="news-list"></div>';
+                const newsList = div.querySelector('#news-list');
+                data.results.slice(0, 8).forEach(post => {
+                    const item = document.createElement('div');
+                    item.className = 'news-item';
+                    item.innerHTML = `
                         <a href="${post.url}" target="_blank">${post.title}</a>
-                        <p><small>${new Date(post.published_at).toLocaleDateString()}</small></p>
-                    </div>
-                `;
-            });
+                        <p><small>${new Date(post.published_at).toLocaleDateString()} • ${post.domain}</small></p>
+                    `;
+                    newsList.appendChild(item);
+                });
+            } else {
+                div.innerHTML = '<p>No recent news found for this token.</p>';
+            }
         }
 
         async function loadAbout(token) {
             const div = document.getElementById('about');
             div.innerHTML = '<p>Loading details...</p>';
+
             const res = await fetch(`https://api.coingecko.com/api/v3/coins/${token.id}?localization=false&tickers=false&market_data=false&community_data=true&developer_data=true&sparkline=false`);
             const data = await res.json();
+
+            let description = data.description.en || 'No description available.';
+            if (description.length > 1000) description = description.substring(0, 1000) + '...';
+
             div.innerHTML = `
-                <h3>About ${data.name}</h3>
-                <p>${data.description.en}</p>
+                <h3>About ${data.name} (${data.symbol.toUpperCase()})</h3>
+                <p>${description}</p>
                 <p><strong>Genesis Date:</strong> ${data.genesis_date || 'N/A'}</p>
-                <p><strong>Homepage:</strong> <a href="${data.links.homepage[0]}" target="_blank">${data.links.homepage[0]}</a></p>
-                <p><strong>Twitter Followers:</strong> ${data.community_data.twitter_followers}</p>
-                <p><strong>Reddit Subscribers:</strong> ${data.community_data.reddit_subscribers}</p>
-                <p><strong>Developer Stars:</strong> ${data.developer_data.stars}</p>
+                ${data.links.homepage[0] ? `<p><strong>Website:</strong> <a href="${data.links.homepage[0]}" target="_blank">${data.links.homepage[0]}</a></p>` : ''}
+                <p><strong>Twitter Followers:</strong> ${data.community_data?.twitter_followers?.toLocaleString() || 'N/A'}</p>
+                <p><strong>Reddit Subscribers:</strong> ${data.community_data?.reddit_subscribers?.toLocaleString() || 'N/A'}</p>
+                <p><strong>GitHub Stars:</strong> ${data.developer_data?.stars || 'N/A'}</p>
             `;
         }
 
         async function searchToken(query) {
-            const res = await fetch(`https://api.coingecko.com/api/v3/search?query=${query}`);
+            const res = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`);
             const data = await res.json();
-            if (data.coins.length > 0) {
+            if (data.coins && data.coins.length > 0) {
                 const coin = data.coins[0];
                 const token = { name: coin.name, id: coin.id, symbol: coin.symbol.toUpperCase() };
                 if (!favorites.includes(token.id)) {
@@ -264,12 +278,12 @@
                 }
                 selectToken(token);
             } else {
-                alert('Token not found.');
+                alert('Token not found. Try a different name or symbol.');
             }
         }
 
         function openOKXSpotTrading(pair) {
-            const tradeUrl = `https://www.okx.com/trade-spot/${pair.toLowerCase()}`;
+            const tradeUrl = `https://www.okx.com/trade-spot/${pair}`;
             const encodedTradeUrl = encodeURIComponent(tradeUrl);
             const deepLink = `okx://wallet/dapp/url?dappUrl=${encodedTradeUrl}`;
             const universalLink = `https://www.okx.com/download?deeplink=${encodeURIComponent(deepLink)}`;
@@ -303,16 +317,19 @@
             let avgLoss = losses.slice(0, period).reduce((a, b) => a + b, 0) / period;
             let rsi = [null];
             for (let i = period; i < prices.length; i++) {
-                avgGain = (avgGain * (period - 1) + (gains[i - 1] || 0)) / period;
-                avgLoss = (avgLoss * (period - 1) + (losses[i - 1] || 0)) / period;
+                avgGain = (avgGain * (period - 1) + gains[i]) / period;
+                avgLoss = (avgLoss * (period - 1) + losses[i]) / period;
                 if (avgLoss === 0) rsi.push(100);
-                else rsi.push(100 - (100 / (1 + avgGain / avgLoss)));
+                else {
+                    let rs = avgGain / avgLoss;
+                    rsi.push(100 - (100 / (1 + rs)));
+                }
             }
             return rsi;
         }
 
         document.getElementById('add-favorite').onclick = () => {
-            const query = document.getElementById('search-input').value.trim();
+            const query = document.getElementById('search-input').value.trim().toLowerCase();
             if (query) searchToken(query);
         };
 
@@ -324,7 +341,7 @@
         setInterval(() => {
             document.getElementById('last-update').textContent = new Date().toLocaleString();
             if (selectedToken) loadOverview(selectedToken);
-        }, 300000); // 5 min
+        }, 300000); // Refresh every 5 minutes
     </script>
 </body>
 </html>
